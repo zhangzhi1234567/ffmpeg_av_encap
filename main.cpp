@@ -96,9 +96,11 @@ int main() {
 	sprintf(device_name, "audio=%s", name_utf8);
 	printf("device_name:%s\n", device_name);
 	string libName("dshow");
-#elif __APPLE__
+#elif __APPLE__ 
 	device_name = ":0";
 	string libName("avfoundation");
+#elif __linux
+	string libName("alsa");
 #endif
 	
 	string devName(device_name);
