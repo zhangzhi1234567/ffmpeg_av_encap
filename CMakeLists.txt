@@ -6,12 +6,11 @@ SET(CMAKE_CXX_FLAGS "-O0 -g -ggdb -fPIC -std=c++11")
 
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src/audio_encap)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include)
-link_directories(${PROJECT_SOURCE_DIR}/lib)
+LINK_DIRECTORIES(${PROJECT_SOURCE_DIR}/lib)
 
 
-SET(SRC_PATH ${PROJECT_SOURCE_DIR}/src/audio_encap)
-
-SET(SRC_LIST ${SRC_PATH}/audio_engine.h  ${SRC_PATH}/audio_engine.cpp main.cpp)
+AUX_SOURCE_DIRECTORY(${PROJECT_SOURCE_DIR}/src/audio_encap/. AUDIO_SRCS)
+SET(SRC_LIST  main.cpp ${AUDIO_SRCS})
 
 ADD_EXECUTABLE(test ${SRC_LIST})
 
