@@ -14,3 +14,7 @@ first call audioSampleInit() init Audio param and open device, then call audioSa
 音频编码类 输入frame 输出packet
 first call audioEncodeInit() init Audio encode param and open encoder, then call audioEncode(), get a packet data.
 if you want get aac data, you kan call packetAddHeader() add adts header.
+
+### AudioDecode
+音频解码类 输入packet 输出frame
+first call audioDecodeInit() init Audio decode param and open decoder, then call audioDecodePacket(), get a frame data.

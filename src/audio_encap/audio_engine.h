@@ -24,7 +24,7 @@ using namespace std;
 */
 class AudioCapture {
 public:
-	AudioCapture(string device_name, string lib_name):deviceName_(device_name), libName_(lib_name),
+	AudioCapture(string device_name, string lib_name):device_name_(device_name), lib_name_(lib_name),
 		packet_(NULL) {}
 	~AudioCapture() {}
 public:
@@ -38,9 +38,9 @@ private:
 	int		 audioCloseDevice();
 	void	 destoryFrame();
 private:
-	string libName_;
-	string deviceName_;
-	AVFormatContext* fmtCtx_;
+	string lib_name_;
+	string device_name_;
+	AVFormatContext* fmt_ctx_;
 	AVFrame *frame_;
 	AVPacket *packet_;
 	char error[128];
@@ -52,33 +52,33 @@ private:
 class AudioSample {
 public:
 	AudioSample(int srcRate, AVSampleFormat srcFormat, int srcChLayout, int dstRate, AVSampleFormat dstFormat, int dstChLayout):
-				srcRate_(srcRate),
-				srcFormat_(srcFormat),
-				srcChLayout_(srcChLayout),
-				dstRate_(dstRate),
-				dstFormat_(dstFormat),
-				dstChLayout_(dstChLayout),
-				swrCtx_(NULL), frame_(NULL){}
+				src_rate_(srcRate),
+				src_format_(srcFormat),
+				src_ch_layout_(srcChLayout),
+				dst_rate_(dstRate),
+				dst_format_(dstFormat),
+				dst_ch_layout_(dstChLayout),
+				swr_ctx_(NULL), frame_(NULL){}
 	~AudioSample();
 public:
 	int audioSampleInit();
-	int audioSampleConvert(AVFrame *srcFrame, AVFrame **dstFrame);
+	int audioSampleConvert(AVFrame *src_frame, AVFrame **dst_frame);
 private:
 	int createDstFrame(int channel_layout, AVSampleFormat format, int nb_samples);
 	int audioSampleCreateData();
 private:
-	int			   srcRate_;
-	AVSampleFormat srcFormat_;
-	int			   srcChLayout_;
-	int			   dstRate_;
-	AVSampleFormat dstFormat_;
-	int			   dstChLayout_;
-	SwrContext *swrCtx_;
+	int			   src_rate_;
+	AVSampleFormat src_format_;
+	int			   src_ch_layout_;
+	int			   dst_rate_;
+	AVSampleFormat dst_format_;
+	int			   dst_ch_layout_;
+	SwrContext *swr_ctx_;
 	// 准备填充的数据
-	uint8_t   **srcData_;
-	int         srcLen_;
-	uint8_t   **dstData_;
-	int         dstLen_;
+	uint8_t   **src_data_;
+	int         src_len_;
+	uint8_t   **dst_data_;
+	int         dst_len_;
 	AVFrame    *frame_;
 };
 
@@ -89,15 +89,15 @@ private:
 
 
 class AudioEncode {
-map<int, int> sampleIndex = {
+map<int, int> sample_index = {
 	{ 96000, 0x0 },{ 88200, 0x1 },{ 64000, 0x2 },{ 48000, 0x3 },{ 44100, 0x4 },{ 32000, 0x5 },
 	{ 24000, 0x6 },{ 22050, 0x7 },{ 16000, 0x8 },{ 12000, 0x9 },{ 11025, 0xA },{ 8000 , 0xB }
 };
 public:
-	AudioEncode(string encoderName):encoderName_(encoderName){}
+	AudioEncode(string encoderName):encoder_name_(encoderName){}
 	~AudioEncode();
 public:
-	int  audioEncodeInit(AVSampleFormat encodeFormat, int encodeChLayout, int sampleRate, int bitRate, int profile);
+	int  audioEncodeInit(AVSampleFormat encode_format, int encode_ch_layout, int sample_rate, int bit_rate, int profile);
 	/* encode a packet */
 	int  audioEncode(AVFrame *frame, AVPacket **pakcet);
 
@@ -108,13 +108,43 @@ public:
 	void packetAddHeader(char *aac_buffer, int frame_len);
 	void packetAddHeader(char * aac_header, int profile, int sample_rate, int channels, int frame_len);
 private:
-	void audio_set_encodec_ctx(AVSampleFormat encodeFormat, int encodeChLayout, int sampleRate, int bitRate, int profile);
+	void audio_set_encodec_ctx(AVSampleFormat encode_format, int encode_ch_layout, int sample_rate, int bit_rate, int profile);
 private:
-	string			encoderName_;
-	AVCodecContext *encodecCtx_;
+	string			encoder_name_;
+	AVCodecContext *encodec_ctx_;
 	AVPacket        packet_; 
-	int profile_;
-	int channels_; 
-	int sampleRate_;
+	int				profile_;
+	int				channels_; 
+	int				sample_rate_;
 };
+
+/*
+** @brief AudioEncode 音频解码类 输入packet 输出frame
+** first call audioDecodeInit() init Audio decode param and open decoder, then call audioDecodePacket(), get a frame data.
+*/
+class AudioDecode {
+public:
+	AudioDecode(string lib_name):lib_name_(lib_name), decodec_ctx_(nullptr), frame_(nullptr){}
+	~AudioDecode() {
+		if (decodec_ctx_) {
+			avcodec_close(decodec_ctx_);
+			avcodec_free_context(&decodec_ctx_);
+		}
+		if (frame_)
+			av_frame_free(&frame_);
+	}
+public:
+	int audioDecodeInit(int decode_ch_layout, int sample_rate, AVSampleFormat decode_format);
+	int audioDecodePacket(AVPacket *src_packet, AVFrame **dst_frame);
+private:
+	int audioDecodeCreateFrame();
+
+	AVCodecContext *decodec_ctx_;
+	AVFrame *frame_;
+	string lib_name_;
+	int    ch_layout_;
+	AVSampleFormat decode_format_;
+};
+
+
 #endif

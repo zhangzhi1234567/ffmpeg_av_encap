@@ -1,0 +1,1 @@
+/usr/bin/c++   -O0 -g -ggdb -fPIC -std=c++11    CMakeFiles/test.dir/main.o CMakeFiles/test.dir/src/audio_encap/audio_engine.o  -o test  -L/code_sdk2.0/share_centos7/git_ffmpeg_av_encap/lib -rdynamic -lavcodec -lavformat -lavutil -lavdevice -lswresample -lswscale -Wl,-rpath,/code_sdk2.0/share_centos7/git_ffmpeg_av_encap/lib 
