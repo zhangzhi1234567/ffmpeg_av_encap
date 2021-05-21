@@ -147,6 +147,8 @@ int AudioSample::createDstFrame(int channel_layout, AVSampleFormat format, int n
 	frame_->channel_layout = channel_layout;
 	frame_->format = format;
 	frame_->nb_samples = nb_samples;
+	int planar = av_sample_fmt_is_planar(dst_format_);
+	int byte = av_get_bytes_per_sample(AV_SAMPLE_FMT_FLT);
 	int ret = av_frame_get_buffer(frame_, 0);
 	if (ret != 0) {
 		av_log(NULL, AV_LOG_ERROR, "open input failure.[%d][%s]\n", AVERROR(ret));
@@ -181,11 +183,18 @@ int AudioSample::audioSampleCreateData()
 
 int AudioSample::audioSampleConvert(AVFrame *src_frame, AVFrame **dst_frame)
 {
-	// 往源缓存区拷贝数据 需要判断 srcFrame 是plannar 还是 packetd
+	// 往源缓存区拷贝数据 需要判断 src_frame 是plannar 还是 packed
 	int planar = av_sample_fmt_is_planar(src_format_);
 	if (planar) {
-		memcpy((void *)src_data_[0], src_frame->data[0], src_frame->linesize[0]/2);
-		memcpy((void *)(src_data_[0] + src_frame->linesize[0]/2), src_frame->data[1], src_frame->linesize[0]/2);
+		int channels = av_get_channel_layout_nb_channels(src_ch_layout_);
+		//TODO: aac解码后src_frame 的采样个数为1024，存储格式为plannar, 
+		//      linesize[0] 按源码的计算方式应该为 1024 * 4 = 4096。 但这里的
+		//      linesize[0] = 8192，目前不懂为什么，但是每层的数据长度是 4096， 所以这里除以了channels:2
+		//      可能解码的时候源码中没有区分plannar 和 packed.
+		int per_plane_len = src_frame->linesize[0] / channels;
+		for (int i = 0; i < channels; i++) {
+			memcpy((void *)(src_data_[0] + per_plane_len * i), src_frame->data[i], per_plane_len);
+		}
 	}
 	else {
 		memcpy((void *)src_data_[0], src_frame->data[0], src_frame->linesize[0]);
@@ -194,18 +203,21 @@ int AudioSample::audioSampleConvert(AVFrame *src_frame, AVFrame **dst_frame)
 	int nb_samples = swr_convert(swr_ctx_, dst_data_, 1024, (const uint8_t **)src_data_, 1024);
 	int dst_linesize = 0;
 	int dst_bufsize = av_samples_get_buffer_size(&dst_linesize, av_get_channel_layout_nb_channels(dst_ch_layout_),
-		nb_samples, dst_format_, 1); //重采样成 FLTP 了
+		nb_samples, dst_format_, 1);
 	
 	printf("convert dst_bufsize = %d, dst_linesize = %d, nb_samples = %d\n", dst_bufsize, dst_linesize, nb_samples);
 	
 	createDstFrame(dst_ch_layout_, dst_format_, nb_samples);
-	printf("convert create dst frame[0] size = %d\n", frame_->linesize[0]);
+	printf("convert create dst frame->linesize[0] = %d\n", frame_->linesize[0]);
 	
-	// 从目的缓存区 往dstFrame拷贝数据 需要判断 dstFrame 是plannar 还是 packetd
+	// 从目的缓存区 往dstFrame拷贝数据 需要判断 dstFrame 是plannar 还是 packed
 	planar = av_sample_fmt_is_planar(dst_format_);
 	if (planar) {
-		memcpy(frame_->data[0], dst_data_[0], frame_->linesize[0]);
-		memcpy(frame_->data[1], dst_data_[0] + frame_->linesize[0], frame_->linesize[0]);
+		int channels = av_get_channel_layout_nb_channels(dst_ch_layout_);
+		int per_plane_len = frame_->linesize[0];
+		for (int i = 0; i < channels; i++) {
+			memcpy(frame_->data[i], dst_data_[0] + per_plane_len * i, per_plane_len);
+		}
 	} else {
 		memcpy(frame_->data[0], dst_data_[0], frame_->linesize[0]);
 	}
@@ -382,6 +394,7 @@ int AudioDecode::audioDecodeInit(int decode_ch_layout, int sample_rate, AVSample
 		av_log(NULL, AV_LOG_ERROR, "audio decode alloc decodec ctx failed.\n");
 		return -1;
 	}
+	
 	decodec_ctx_->sample_rate = sample_rate;
 	decodec_ctx_->channel_layout = decode_ch_layout;
 	if (0 != avcodec_open2(decodec_ctx_, avodec, NULL)) {

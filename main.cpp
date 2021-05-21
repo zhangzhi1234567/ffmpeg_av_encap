@@ -131,14 +131,14 @@ void parse_aac_2_pcm() {
 	
 
 	FILE *fd_aac = fopen(file_aac, "rb+");
-	FILE *fd_pcm = fopen(file_pcm, "rb+");
+	FILE *fd_pcm = fopen(file_pcm, "wb+");
 	string decoderName("aac");
 	std::unique_ptr<AudioDecode> audioDecode(new AudioDecode(decoderName));
 	audioDecode->audioDecodeInit(AV_CH_LAYOUT_STEREO, 44100, AV_SAMPLE_FMT_FLTP);
 
 	AVPacket *packet = av_packet_alloc();
 	av_init_packet(packet);
-	AVFrame *decodeFrame;
+	AVFrame *decodeFrame = NULL;
 	
 
 	//重采样相关
@@ -181,8 +181,9 @@ void parse_aac_2_pcm() {
 		memcpy(packet->data, aac_buffer, size);
 		int ret = av_packet_from_data(packet, packet->data, packet->size);
 
-		// 解码 与 重采样
+		// 解码 与 重采样 
 		audioDecode->audioDecodePacket(packet, &decodeFrame);
+		// 解码出来的数据是 FLTP 格式的，ffplay 不支持，需要重采样
 		audioSample->audioSampleConvert(decodeFrame, &resample_frame);
 
 		// 保存 PCM 数据
@@ -278,9 +279,11 @@ int capture_encode_2_aac() {
 ** 测试主函数
 */
 int main() {
+	
+#if 1
+	//capture_encode_2_aac();
+	
 	parse_aac_2_pcm();
-#if 0
-	capture_encode_2_aac();
 #endif
 }
 
